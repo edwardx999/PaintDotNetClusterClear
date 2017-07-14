@@ -135,6 +135,7 @@ namespace ClusterClearEffect {
 			Tolerance*=Tolerance/toleranceMax/toleranceMax;
 
 			base.OnSetRenderInfo(newToken,dstArgs,srcArgs);
+			locked=false;
 		}
 
 		protected override void OnCustomizeConfigUIWindowProperties(PropertyCollection props) {
@@ -148,13 +149,15 @@ namespace ClusterClearEffect {
 
 		bool cleaned=false;
 		bool[,] safePoints;
+		bool locked=false;
 		protected override unsafe void OnRender(Rectangle[] rois,int startIndex,int length) {
-			if(length==0) return;
+			if(locked)
+				return;
+			locked=true;
 
-
-			RectangleRef[] rects = RectanglesToRectangleRefs(rois);
-			Array.Sort(rects);
-			List<Cluster> clusters=FindClusters(SrcArgs.Surface,rects);
+			//RectangleRef[] rects = RectanglesToRectangleRefs(rois);
+			//Array.Sort(rects);
+			List<Cluster> clusters=FindClusters(SrcArgs.Surface);
 
 			/*
 			List<Cluster> testClusterList=new List<Cluster>();
@@ -204,29 +207,61 @@ namespace ClusterClearEffect {
 		float Tolerance = 50;
 		#endregion
 
-		List<Cluster> FindClusters(Surface src,RectangleRef[] limits) {
+		List<RectangleRef> FindRanges() {
+			Surface src=SrcArgs.Surface;
+			PdnRegion selRegion=EnvironmentParameters.GetSelection(src.Bounds);
+			Rectangle selBounds=selRegion.GetBoundsInt();
 			ColorBgra PrimaryColor=EnvironmentParameters.PrimaryColor;
-			//ColorBgra SecondaryColor=(ColorBgra)EnvironmentParameters.SecondaryColor;
-			List<Cluster> clusters = new List<Cluster>();
-			Point seed;
-			safePoints=new bool[src.Width,src.Height];
-			foreach(RectangleRef r in limits) {
-				int bot = r.r.Bottom;
-				int rig = r.r.Right;
-				for(int y = r.r.Top;y<bot;++y) {
-					for(int x = r.r.Left;x<rig;++x) {
-						if(ColorPercentage(PrimaryColor,src[x,y])<=Tolerance&&!safePoints[x,y]) {
-							seed=new Point(x,y);
-							//if(IsCancelRequested) return null;
-							Cluster add = new Cluster();
-							clusters.Add(add);
-							add.Create(seed,src,limits,PrimaryColor,Tolerance,this,safePoints);
-							//if(IsCancelRequested) return null;
-						}
+			List<RectangleRef> ranges=new List<RectangleRef>();
+			byte rangeFound=0;
+			int rangeStart=0,rangeEnd=0;
+			for(int y = selBounds.Top;y<selBounds.Bottom;++y) {
+				if(IsCancelRequested) goto endloop;
+				for(int x = selBounds.Left;x<selBounds.Right;++x) {
+					switch(rangeFound) {
+						case 0: {
+								if(selRegion.IsVisible(x,y)&&ColorPercentage(src[x,y],PrimaryColor)<=Tolerance) {
+									rangeFound=1;
+									rangeStart=x;
+								}
+								break;
+							}
+						case 1: {
+								if(!selRegion.IsVisible(x,y)||ColorPercentage(src[x,y],PrimaryColor)>Tolerance) {
+									rangeFound=2;
+									rangeEnd=x;
+									goto case 2;
+								}
+								break;
+							}
+						case 2: {
+								ranges.Add(new RectangleRef(rangeStart,y,rangeEnd-rangeStart,1));
+								rangeFound=0;
+								break;
+							}
 					}
 				}
+				if(1==rangeFound) {
+					ranges.Add(new RectangleRef(rangeStart,y,selBounds.Right-rangeStart,1));
+					rangeFound=0;
+				}
 			}
-			return clusters;
+			endloop:
+			CompressRanges(ranges);
+			return ranges;
+		}
+
+		static void CompressRanges(List<RectangleRef> ranges) {
+			ranges.Sort();
+			for(int i = 1;i<ranges.Count();++i) {
+				if(ranges[i-1].r.Left==ranges[i].r.Left&&ranges[i-1].r.Right==ranges[i].r.Right&&ranges[i-1].r.Bottom==ranges[i].r.Top) {
+					ranges[i-1]=new RectangleRef(ranges[i-1].r.Location,new Size(ranges[i].r.Width,ranges[i-1].r.Height+ranges[i].r.Height));
+					ranges.RemoveAt(i--);
+				} /*
+				else if(ranges[i-1].r==ranges[i].r) {
+					ranges.RemoveAt(--i);
+				}*/
+			}
 		}
 
 		class ScanRange {
