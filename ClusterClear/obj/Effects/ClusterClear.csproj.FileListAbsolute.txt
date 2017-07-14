@@ -19,3 +19,4 @@ C:\Users\edwar\Documents\Visual Studio 2017\Projects\ClusterClear\ClusterClear\b
 C:\Users\edwar\Documents\Visual Studio 2017\Projects\ClusterClear\ClusterClear\bin\Release\PaintDotNet.Data.pdb
 C:\Users\edwar\Documents\Visual Studio 2017\Projects\ClusterClear\ClusterClear\bin\Release\PaintDotNet.Framework.pdb
 C:\Users\edwar\Documents\Visual Studio 2017\Projects\ClusterClear\ClusterClear\bin\Release\PaintDotNet.Resources.pdb
+C:\Users\edwar\Documents\Visual Studio 2017\Projects\ClusterClear\ClusterClear\obj\Effects\ClusterClear.csprojResolveAssemblyReference.cache
