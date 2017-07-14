@@ -149,7 +149,7 @@ namespace ClusterClearEffect {
 		bool cleaned=false;
 		protected override unsafe void OnRender(Rectangle[] rois,int startIndex,int length) {
 			if(length==0) return;
-			
+
 
 			RectangleRef[] rects = RectanglesToRectangleRefs(rois);
 			Array.Sort(rects);
@@ -163,7 +163,7 @@ namespace ClusterClearEffect {
 			*/
 			//if(clusters.Count>3)
 			//RenderCluster(DstArgs.Surface,clusters[3]);
-			
+			//new game plan, scan limits for ranges, combine ranges into clusters
 			RenderClusters(DstArgs.Surface,clusters);
 			if(IsCancelRequested)
 				CleanUp();
@@ -204,41 +204,75 @@ namespace ClusterClearEffect {
 		float Tolerance = 50;
 		#endregion
 
-		List<Cluster> FindClusters(Surface src,RectangleRef[] limits) {
-			ColorBgra PrimaryColor=EnvironmentParameters.PrimaryColor;
-			//ColorBgra SecondaryColor=(ColorBgra)EnvironmentParameters.SecondaryColor;
-			List<Cluster> clusters = new List<Cluster>();
-			Point seed;
+		static void CompressRanges(List<RectangleRef> ranges) {
+			ranges.Sort();
+			for(int i = 1;i<ranges.Count();++i) {
+				if(ranges[i-1].r.Left==ranges[i].r.Left&&ranges[i-1].r.Right==ranges[i].r.Right&&ranges[i-1].r.Bottom==ranges[i].r.Top) {
+					ranges[i-1]=new RectangleRef(ranges[i-1].r.Location,new Size(ranges[i].r.Width,ranges[i-1].r.Height+ranges[i].r.Height));
+					ranges.RemoveAt(i--);
+				} /*
+				else if(ranges[i-1].r==ranges[i].r) {
+					ranges.RemoveAt(--i);
+				}*/
+			}
+		}
 
-			foreach(RectangleRef r in limits) {
-				int bot = r.r.Bottom;
-				int rig = r.r.Right;
-				for(int y = r.r.Top;y<bot;++y) {
-					for(int x = r.r.Left;x<rig;++x) {
-						if(ColorPercentage(PrimaryColor,src[x,y])<=Tolerance) {
-							seed=new Point(x,y);
-							bool inCluster=false;
-							foreach(Cluster c in clusters) {
-								//if(IsCancelRequested) return null;
-								RectangleRef where;
-								if((where=c.Contains(seed))!=null) {
-									inCluster=true;
-									x=where.r.Right;
+		List<RectangleRef> FindRanges(Surface src,RectangleRef[] limits) {
+			ColorBgra PrimaryColor=EnvironmentParameters.PrimaryColor;
+			List<RectangleRef> ranges=new List<RectangleRef>();
+			byte rangeFound=0;
+			int rangeStart=0,rangeEnd=0;
+			foreach(RectangleRef rr in limits) {
+				for(int y = rr.r.Top;y<rr.r.Bottom;++y) {
+					if(IsCancelRequested) goto endloop;
+					for(int x = rr.r.Left;x<rr.r.Right;++x) {
+						switch(rangeFound) {
+							case 0: {
+									if(ColorPercentage(src[x,y],PrimaryColor)<=Tolerance) {
+										rangeFound=1;
+										rangeStart=x;
+									}
 									break;
 								}
-							}
-							//if(IsCancelRequested) return null;
-							if(!inCluster) {
-								Cluster add = new Cluster();
-								clusters.Add(add);
-								add.Create(seed,src,limits,PrimaryColor,Tolerance,this);
-							}
-							//if(IsCancelRequested) return null;
+							case 1: {
+									if(ColorPercentage(src[x,y],PrimaryColor)>Tolerance) {
+										rangeFound=2;
+										rangeEnd=x;
+										goto case 2;
+									}
+									break;
+								}
+							case 2: {
+									ranges.Add(new RectangleRef(rangeStart,y,rangeEnd-rangeStart,1));
+									rangeFound=0;
+									break;
+								}
 						}
+					}
+					if(1==rangeFound) {
+						ranges.Add(new RectangleRef(rangeStart,y,rr.r.Right-rangeStart,1));
+						rangeFound=0;
 					}
 				}
 			}
+			endloop:
+			CompressRanges(ranges);
+			return ranges;
+		}
+
+		List<Cluster> FormClusters(List<RectangleRef> limits) {
+			ColorBgra PrimaryColor=EnvironmentParameters.PrimaryColor;
+			//ColorBgra SecondaryColor=(ColorBgra)EnvironmentParameters.SecondaryColor;
+			List<Cluster> clusters = new List<Cluster>();
+			//new game plan, scan limits for ranges, combine ranges into clusters
+			//dumb n² algorithm
+			
 			return clusters;
+		}
+
+		class ClusterPart {
+			Cluster parent;
+			RectangleRef child;
 		}
 
 		class ScanRange {
@@ -421,16 +455,7 @@ namespace ClusterClearEffect {
 			}
 
 			public void CompressRanges() {
-				ranges.Sort();
-				//sorted=true;
-				for(int i = 1;i<ranges.Count();++i) {
-					if(ranges[i-1].r.Left==ranges[i].r.Left&&ranges[i-1].r.Right==ranges[i].r.Right&&ranges[i-1].r.Bottom==ranges[i].r.Top) {
-						ranges[i-1]=new RectangleRef(ranges[i-1].r.Location,new Size(ranges[i].r.Width,ranges[i-1].r.Height+ranges[i].r.Height));
-						ranges.RemoveAt(i--);
-					} else if(ranges[i-1].r==ranges[i].r) {
-						ranges.RemoveAt(--i);
-					}
-				}
+				ClusterClearEffectPlugin.CompressRanges(ranges);
 			}
 		}
 
