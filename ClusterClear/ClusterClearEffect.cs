@@ -147,9 +147,10 @@ namespace ClusterClearEffect {
 		}
 
 		bool cleaned=false;
+		bool[,] safePoints;
 		protected override unsafe void OnRender(Rectangle[] rois,int startIndex,int length) {
 			if(length==0) return;
-			
+
 
 			RectangleRef[] rects = RectanglesToRectangleRefs(rois);
 			Array.Sort(rects);
@@ -163,7 +164,6 @@ namespace ClusterClearEffect {
 			*/
 			//if(clusters.Count>3)
 			//RenderCluster(DstArgs.Surface,clusters[3]);
-			
 			RenderClusters(DstArgs.Surface,clusters);
 			if(IsCancelRequested)
 				CleanUp();
@@ -209,30 +209,18 @@ namespace ClusterClearEffect {
 			//ColorBgra SecondaryColor=(ColorBgra)EnvironmentParameters.SecondaryColor;
 			List<Cluster> clusters = new List<Cluster>();
 			Point seed;
-
+			safePoints=new bool[src.Width,src.Height];
 			foreach(RectangleRef r in limits) {
 				int bot = r.r.Bottom;
 				int rig = r.r.Right;
 				for(int y = r.r.Top;y<bot;++y) {
 					for(int x = r.r.Left;x<rig;++x) {
-						if(ColorPercentage(PrimaryColor,src[x,y])<=Tolerance) {
+						if(ColorPercentage(PrimaryColor,src[x,y])<=Tolerance&&!safePoints[x,y]) {
 							seed=new Point(x,y);
-							bool inCluster=false;
-							foreach(Cluster c in clusters) {
-								//if(IsCancelRequested) return null;
-								RectangleRef where;
-								if((where=c.Contains(seed))!=null) {
-									inCluster=true;
-									x=where.r.Right;
-									break;
-								}
-							}
 							//if(IsCancelRequested) return null;
-							if(!inCluster) {
-								Cluster add = new Cluster();
-								clusters.Add(add);
-								add.Create(seed,src,limits,PrimaryColor,Tolerance,this);
-							}
+							Cluster add = new Cluster();
+							clusters.Add(add);
+							add.Create(seed,src,limits,PrimaryColor,Tolerance,this,safePoints);
 							//if(IsCancelRequested) return null;
 						}
 					}
@@ -312,7 +300,7 @@ namespace ClusterClearEffect {
 				return null;
 			}
 
-			public void Create(Point seed,Surface src,RectangleRef[] limits,ColorBgra color,float Tolerance,ClusterClearEffectPlugin controller) {
+			public void Create(Point seed,Surface src,RectangleRef[] limits,ColorBgra color,float Tolerance,ClusterClearEffectPlugin controller,bool[,] safePoints) {
 				ranges.Clear();
 				int xL = seed.X;
 				while(xL>=0&&ColorPercentage(color,src[seed.X,seed.Y])<=Tolerance) {
@@ -342,11 +330,13 @@ namespace ClusterClearEffect {
 					r=scanRanges.Pop();
 					//scan left
 					for(sleft=r.left-1;sleft>=xMin&&ColorPercentage(color,src[sleft,r.y])<=Tolerance;--sleft) {
+						safePoints[sleft,r.y]=true;
 					}
 					++sleft;
 
 					//scan right
 					for(sright=r.right+1;sright<=xMax&&ColorPercentage(color,src[sright,r.y])<=Tolerance;++sright) {
+						safePoints[sright,r.y]=true;
 					}
 					--sright;
 					ranges.Add(new RectangleRef(sleft,r.y,sright-sleft,1));
@@ -360,14 +350,17 @@ namespace ClusterClearEffect {
 						while(xL<=sright) {
 							for(;xL<=sright;++xL) {
 								if(ColorPercentage(color,src[xL,newy])<=Tolerance) {
+									safePoints[xL,newy]=true;
 									rangeFound=true;
 									rangeStart=xL++;
 									break;
 								}
 							}
 							for(;xL<=sright;++xL) {
-								if(ColorPercentage(color,src[xL,newy])>Tolerance)
+								if(ColorPercentage(color,src[xL,newy])>Tolerance) {
 									break;
+								}
+								safePoints[xL,newy]=true;
 							}
 							if(rangeFound) {
 								rangeFound=false;
@@ -383,6 +376,7 @@ namespace ClusterClearEffect {
 						while(xL<r.left) {
 							for(;xL<r.left;++xL) {
 								if(ColorPercentage(color,src[xL,newy])<=Tolerance) {
+									safePoints[xL,newy]=true;
 									rangeFound=true;
 									rangeStart=xL++;
 									break;
@@ -391,6 +385,7 @@ namespace ClusterClearEffect {
 							for(;xL<r.left;++xL) {
 								if(ColorPercentage(color,src[xL,newy])>Tolerance)
 									break;
+								safePoints[xL,newy]=true;
 							}
 							if(rangeFound) {
 								rangeFound=false;
@@ -401,6 +396,7 @@ namespace ClusterClearEffect {
 						while(xL<=sright) {
 							for(;xL<=sright;++xL) {
 								if(ColorPercentage(color,src[xL,newy])<=Tolerance) {
+									safePoints[xL,newy]=true;
 									rangeFound=true;
 									rangeStart=xL++;
 									break;
@@ -409,6 +405,7 @@ namespace ClusterClearEffect {
 							for(;xL<=sright;++xL) {
 								if(ColorPercentage(color,src[xL,newy])>Tolerance)
 									break;
+								safePoints[xL,newy]=true;
 							}
 							if(rangeFound) {
 								rangeFound=false;
@@ -427,7 +424,8 @@ namespace ClusterClearEffect {
 					if(ranges[i-1].r.Left==ranges[i].r.Left&&ranges[i-1].r.Right==ranges[i].r.Right&&ranges[i-1].r.Bottom==ranges[i].r.Top) {
 						ranges[i-1]=new RectangleRef(ranges[i-1].r.Location,new Size(ranges[i].r.Width,ranges[i-1].r.Height+ranges[i].r.Height));
 						ranges.RemoveAt(i--);
-					} else if(ranges[i-1].r==ranges[i].r) {
+					}
+					else if(ranges[i-1].r==ranges[i].r) {
 						ranges.RemoveAt(--i);
 					}
 				}
