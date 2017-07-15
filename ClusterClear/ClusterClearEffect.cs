@@ -114,7 +114,7 @@ namespace ClusterClearEffect {
 			List<Property> props = new List<Property>();
 			props.Add(new Int32Property(PropertyNames.LowerThreshold,0,0,300));
 			props.Add(new Int32Property(PropertyNames.UpperThreshold,150,0,500));
-			props.Add(new Int32Property(PropertyNames.Tolerance,((int)(toleranceMax*0.95)),0,(int)toleranceMax));
+			props.Add(new Int32Property(PropertyNames.Tolerance,((int)(toleranceMax*0.988)),0,(int)toleranceMax));
 
 			return new PropertyCollection(props);
 		}
@@ -129,19 +129,32 @@ namespace ClusterClearEffect {
 		}
 
 		static readonly float toleranceMax = 1000;
+		bool ClustersFinished=false;
+		bool ToleranceChanged=true;
+		List<Cluster> clusters;
 		protected override void OnSetRenderInfo(PropertyBasedEffectConfigToken newToken,RenderArgs dstArgs,RenderArgs srcArgs) {
 			LowerThreshold=newToken.GetProperty<Int32Property>(PropertyNames.LowerThreshold).Value;
 			UpperThreshold=newToken.GetProperty<Int32Property>(PropertyNames.UpperThreshold).Value;
+			float oldTolerance=Tolerance;
 			Tolerance=newToken.GetProperty<Int32Property>(PropertyNames.Tolerance).Value;
 			Tolerance*=Tolerance/toleranceMax/toleranceMax;
-
+			ToleranceChanged=Tolerance==oldTolerance;
 			base.OnSetRenderInfo(newToken,dstArgs,srcArgs);
+			//new Thread(() => this.DelayRender(0)).Start();
 			PdnRegion selection=EnvironmentParameters.GetSelection(SrcArgs.Surface.Bounds);
 			List<RectangleRef> selRects=RectanglesToRectangleRefs(selection.GetRegionScansInt());
 			//selRects=(split into proper rois);
 			//CustomOnRender(selRects);
 			CustomOnRender(SplitSmall(selRects,selection.GetBoundsInt().Bottom/4));
 
+		}
+
+		void DelayRender(int timeout) {
+			Thread.Sleep(timeout);
+
+			//PdnRegion selection=EnvironmentParameters.GetSelection(SrcArgs.Surface.Bounds);
+			//List<RectangleRef> selRects=RectanglesToRectangleRefs(selection.GetRegionScansInt());
+			//CustomOnRender(SplitSmall(selRects,selection.GetBoundsInt().Bottom/4));
 		}
 
 		protected override void OnCustomizeConfigUIWindowProperties(PropertyCollection props) {
@@ -159,7 +172,7 @@ namespace ClusterClearEffect {
 
 		static List<RectangleRef> SplitSmall(IEnumerable<RectangleRef> orig,int optRectHeight) {
 			List<RectangleRef> rects=new List<RectangleRef>();
-			foreach(RectangleRef rect in orig) { 
+			foreach(RectangleRef rect in orig) {
 				if(rect.Height>optRectHeight) {
 					int maxY=rect.Bottom-optRectHeight;
 					int y = rect.Y;
@@ -176,13 +189,15 @@ namespace ClusterClearEffect {
 		}
 
 		unsafe void CustomOnRender(IEnumerable<RectangleRef> rois) {
-			SynchronizedCollection<RectangleRef> allRanges=new SynchronizedCollection<RectangleRef>();
-			Parallel.ForEach(rois,rect => {
-				CleanUp(rect);
-				List<RectangleRef> ranges=FindRanges(rect);
-				allRanges.AddRange(ranges);
-			});
-			List<Cluster> clusters=ClusterRanges(allRanges.ToList());
+			if(ToleranceChanged||!ClustersFinished) {
+				SynchronizedCollection<List<RectangleRef>> allRanges=new SynchronizedCollection<List<RectangleRef>>();
+				Parallel.ForEach(rois,rect => {
+					CleanUp(rect);
+					List<RectangleRef> ranges=FindRanges(rect);
+					allRanges.Add(ranges);
+				});
+				clusters=ClusterRanges(allRanges);
+			}
 			Parallel.ForEach(clusters,clust => {
 				RenderCluster(DstArgs.Surface,clust);
 			});
@@ -216,7 +231,7 @@ namespace ClusterClearEffect {
 		#region UICode
 		IntSliderControl LowerThreshold = 0;
 		IntSliderControl UpperThreshold = 50;
-		float Tolerance = 50;
+		float Tolerance = -5;
 		#endregion
 
 		List<RectangleRef> FindRanges(RectangleRef rect) {
@@ -274,35 +289,94 @@ namespace ClusterClearEffect {
 			}
 		}
 
-		List<Cluster> ClusterRanges(List<RectangleRef> ranges) {
-			List<Cluster> clusters=new List<Cluster>();
-			Stack<RectangleRef> searchStack=new Stack<RectangleRef>();
+		List<Cluster> ClusterRanges(IEnumerable<List<RectangleRef>> ranges) {
+			ClustersFinished=false;
+			List<ClusterTestNode> tests=new List<ClusterTestNode>();
+			ranges.ForEach(rrl => {
+				rrl.ForEach(rr => {
+					ClusterPart toAdd=new ClusterPart(rr);
+					tests.Add(new ClusterTestNode(toAdd,true));
+					tests.Add(new ClusterTestNode(toAdd,false));
+				}
+				);
+			});
+			tests.Sort((a,b) => {//sort by y, if ys are same, bottoms are first
+				int ydif=a.Y-b.Y;
+				if(0!=ydif) return ydif;
+				return a.IsTop.CompareTo(b.IsTop);
+			});
+			//int index=0;
+			//tests.ForEach(ctn => Console.WriteLine(index+++"\t"+(ctn.IsTop ? "Top" : "Bottom")+":\t"+ctn.Parent.Rectangle));
+			List<Cluster> Clusters=new List<Cluster>();
+			Stack<int> searchStack=new Stack<int>();
 			//ranges.Sort((a,b) => a.r.Y-b.r.Y);
-			//n^2 can change to array of bottoms and tops with references to parent RectangleRef,sort by y (n?)
-			while(ranges.Count>0) {
-				Cluster currentCluster=new Cluster();
-				RectangleRef seed=ranges.Last();
-				ranges.RemoveAt(ranges.Count-1);
-				searchStack.Push(seed);
-				while(searchStack.Count>0) {
-					if(IsCancelRequested) goto endloop;
-					RectangleRef rr=searchStack.Pop();
-					int Bottom=rr.rect.Bottom;
-					int Right=rr.rect.Right;
-					currentCluster.ranges.Add(rr);
-					for(int i = ranges.Count-1;i>=0;--i) {
-						RectangleRef test=ranges[i];
-						if(test.IsBorderingVert(rr)) {
-							searchStack.Push(test);
-							ranges.RemoveAt(i);
+			//n^2 can change to array of bottoms and tops with references to parent RectangleRef,sort by y (nlogn)
+			int max=tests.Count;
+			for(int i = max-1;i>=0;--i) {
+				ClusterTestNode CurrentNode=tests[i];
+				if(!CurrentNode.IsTop) continue;//if it is a bottom or is already in a cluster, nothing is done
+				if(CurrentNode.Parent.Cluster==null) {
+					//Console.WriteLine("\nTesting "+CurrentNode.Parent.Rectangle);
+					Cluster CurrentCluster=new Cluster();
+					Clusters.Add(CurrentCluster);
+					searchStack.Push(i);
+					while(searchStack.Count>0) {//search for contacts
+						if(IsCancelRequested) goto endloop;
+						int searchIndex=searchStack.Pop();
+						ClusterTestNode SearchNode=tests[searchIndex];
+						//Console.WriteLine("\tSearch Seed: "+SearchNode.Parent.Rectangle);
+						if(SearchNode.Parent.Cluster!=null) continue;
+						SearchNode.Parent.Cluster=CurrentCluster;
+						CurrentCluster.Ranges.Add(SearchNode.Parent.Rectangle);
+						//search up for bottoms
+						for(int s = searchIndex-1;s>=0;--s) {
+							if(!tests[s].IsTop) {
+								if(tests[s].Y==SearchNode.Parent.Rectangle.Top&&tests[s].Parent.Rectangle.OverlapsX(SearchNode.Parent.Rectangle)) {
+									searchStack.Push(s);
+								}
+								else if(tests[s].Y<SearchNode.Parent.Rectangle.Top) {
+									//Console.WriteLine("\t\tStopped at "+s);
+									break;
+								}
+							}
+						}
+						//search down for tops
+						for(int s = searchIndex+1;s<max;++s) {
+							if(tests[s].IsTop) {
+								if(tests[s].Y==SearchNode.Parent.Rectangle.Bottom&&tests[s].Parent.Rectangle.OverlapsX(SearchNode.Parent.Rectangle)) {
+									searchStack.Push(s);
+								}
+								else if(tests[s].Y>SearchNode.Parent.Rectangle.Bottom) {
+									//Console.WriteLine("\t\tStopped at "+s);
+									break;
+								}
+							}
 						}
 					}
 				}
-				clusters.Add(currentCluster);
 			}
+			ClustersFinished=true;
 			endloop:
-			CompressRanges(ranges);
-			return clusters;
+			return Clusters;
+		}
+
+		class ClusterPart {
+			public Cluster Cluster=null;
+			public readonly RectangleRef Rectangle;
+			public ClusterPart(RectangleRef rr) {
+				Rectangle=rr;
+			}
+		}
+
+		class ClusterTestNode {
+			public readonly ClusterPart Parent;
+			public readonly bool IsTop;
+			public readonly int Y;
+			public ClusterTestNode(ClusterPart Parent,bool Top) {
+				this.Parent=Parent;
+				this.IsTop=Top;
+				Y=Top ? Parent.Rectangle.Top : Parent.Rectangle.Bottom;
+			}
 		}
 
 		class ScanRange {
@@ -354,37 +428,36 @@ namespace ClusterClearEffect {
 				return rect.ToString();
 			}
 			public bool IsBorderingVert(RectangleRef other) {
-				return (other.Bottom==Top||other.Top==Bottom)
-						&&
-						(
-							(other.Left>=Left&&other.Left<Right)
-							||
-							(other.Right>Left&&other.Right<=Right)
-							||
-							(other.Left<Left&&other.Right>Right)
-						);
+				return (other.Bottom==Top||other.Top==Bottom)&&OverlapsX(other);
+			}
+			public bool OverlapsX(RectangleRef other) {
+				return (other.Left>=Left&&other.Left<Right)
+						||
+						(other.Right>Left&&other.Right<=Right)
+						||
+						(other.Left<Left&&other.Right>Right);
 			}
 		}
 
 		class Cluster {
-			public List<RectangleRef> ranges;
+			public List<RectangleRef> Ranges;
 			//private bool sorted=false;
 
 			public Cluster() {
-				ranges=new List<RectangleRef>();
+				Ranges=new List<RectangleRef>();
 			}
 
 			public int NumPixels {
 				get {
 					int sum = 0;
-					foreach(RectangleRef r in ranges) sum+=r.Area();
+					foreach(RectangleRef r in Ranges) sum+=r.Area();
 					return sum;
 				}
 			}
 
 			public RectangleRef Contains(Point p) {
 				//if(!sorted) { ranges.Sort(); sorted=true; }
-				foreach(RectangleRef r in ranges) {
+				foreach(RectangleRef r in Ranges) {
 					if(r.Contains(p)) { return r; }
 					if(r.rect.Left>p.X) { return null; }
 				}
@@ -392,7 +465,7 @@ namespace ClusterClearEffect {
 			}
 
 			public void Create(Point seed,Surface src,RectangleRef[] limits,ColorBgra color,float Tolerance,ClusterClearEffectPlugin controller,bool[,] safePoints) {
-				ranges.Clear();
+				Ranges.Clear();
 				int xL = seed.X;
 				while(xL>=0&&ColorPercentage(color,src[seed.X,seed.Y])<=Tolerance) {
 					--xL;
@@ -404,7 +477,7 @@ namespace ClusterClearEffect {
 					++xR;
 				}
 				--xR;
-				ranges.Add(new RectangleRef(xL,seed.Y,xR-xL+1,1));
+				Ranges.Add(new RectangleRef(xL,seed.Y,xR-xL+1,1));
 
 				Stack<ScanRange> scanRanges = new Stack<ScanRange>();
 				scanRanges.Push(new ScanRange(xL,xR,seed.Y,1));
@@ -430,7 +503,7 @@ namespace ClusterClearEffect {
 						safePoints[sright,r.y]=true;
 					}
 					--sright;
-					ranges.Add(new RectangleRef(sleft,r.y,sright-sleft,1));
+					Ranges.Add(new RectangleRef(sleft,r.y,sright-sleft,1));
 
 					//scan in same direction vertically
 					bool rangeFound = false;
@@ -509,7 +582,7 @@ namespace ClusterClearEffect {
 			}
 
 			public void CompressRanges() {
-				ClusterClearEffectPlugin.CompressRanges(ranges);
+				ClusterClearEffectPlugin.CompressRanges(Ranges);
 			}
 		}
 
@@ -518,7 +591,7 @@ namespace ClusterClearEffect {
 			int clusterSize = cluster.NumPixels;
 			//bool properSize = (clusterSize>=LowerThreshold&&clusterSize<=UpperThreshold);
 			if(clusterSize>=LowerThreshold&&clusterSize<=UpperThreshold) {
-				foreach(RectangleRef r in cluster.ranges) {
+				foreach(RectangleRef r in cluster.Ranges) {
 					for(int y = r.rect.Top;y<r.rect.Bottom;++y) {
 						if(IsCancelRequested) return;
 						for(int x = r.rect.Left;x<r.rect.Right;++x) {
