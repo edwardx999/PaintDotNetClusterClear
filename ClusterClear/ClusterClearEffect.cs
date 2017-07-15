@@ -114,7 +114,7 @@ namespace ClusterClearEffect {
 			List<Property> props = new List<Property>();
 			props.Add(new Int32Property(PropertyNames.LowerThreshold,0,0,300));
 			props.Add(new Int32Property(PropertyNames.UpperThreshold,50,0,500));
-			props.Add(new Int32Property(PropertyNames.Tolerance,((int)toleranceMax)>>1,0,(int)toleranceMax));
+			props.Add(new Int32Property(PropertyNames.Tolerance,((int)(toleranceMax*0.95)),0,(int)toleranceMax));
 
 			return new PropertyCollection(props);
 		}
@@ -136,9 +136,10 @@ namespace ClusterClearEffect {
 			Tolerance*=Tolerance/toleranceMax/toleranceMax;
 
 			base.OnSetRenderInfo(newToken,dstArgs,srcArgs);
-			Rectangle[] selRects=EnvironmentParameters.GetSelection(SrcArgs.Surface.Bounds).GetRegionScansInt();
+			PdnRegion selection=EnvironmentParameters.GetSelection(SrcArgs.Surface.Bounds);
+			Rectangle[] selRects=selection.GetRegionScansInt();
 			//selRects=(split into proper rois);
-			CustomOnRender(selRects);
+			CustomOnRender(splitSmall(selRects,selection.GetBoundsInt().Bottom/4));
 
 		}
 
@@ -149,7 +150,22 @@ namespace ClusterClearEffect {
 			base.OnCustomizeConfigUIWindowProperties(props);
 		}
 
-		unsafe void CustomOnRender(Rectangle[] rois) {
+		List<RectangleRef> splitSmall(Rectangle[] orig,int optRectHeight) {
+			List<RectangleRef> rects=new List<RectangleRef>();
+			for(int i = 0;i<orig.Length;++i) {
+				if(orig[i].Height>optRectHeight) {
+					int maxY=orig[i].Bottom-optRectHeight;
+					int y = orig[i].Y;
+					for(;y<maxY;y+=optRectHeight) {
+						rects.Add(new RectangleRef(orig[i].X,y,orig[i].Width,optRectHeight));
+					}
+					rects.Add(new RectangleRef(orig[i].X,y,orig[i].X,orig[i].Bottom-y));
+				}
+			}
+			return rects;
+		}
+
+		unsafe void CustomOnRender(IEnumerable<RectangleRef> rois) {
 			SynchronizedCollection<RectangleRef> allRanges=new SynchronizedCollection<RectangleRef>();
 			Parallel.ForEach(rois,rect => {
 				CleanUp(rect);
@@ -167,7 +183,7 @@ namespace ClusterClearEffect {
 			return;
 		}
 
-		void CleanUp(Surface dst,Surface src,Rectangle rect) {
+		void CleanUp(Surface dst,Surface src,RectangleRef rect) {
 			int bot=rect.Bottom,right=rect.Right;
 			for(int y = rect.Top;y<bot;++y) {
 				for(int x = rect.Left;x<right;++x) {
@@ -176,7 +192,7 @@ namespace ClusterClearEffect {
 			}
 		}
 
-		void CleanUp(Rectangle r) {
+		void CleanUp(RectangleRef r) {
 			Surface dst=DstArgs.Surface,src=SrcArgs.Surface;
 			int ymax=r.Bottom;
 			int xmax=r.Right;
@@ -193,7 +209,7 @@ namespace ClusterClearEffect {
 		float Tolerance = 50;
 		#endregion
 
-		List<RectangleRef> FindRanges(Rectangle rect) {
+		List<RectangleRef> FindRanges(RectangleRef rect) {
 			Surface src=SrcArgs.Surface;
 			ColorBgra PrimaryColor=EnvironmentParameters.PrimaryColor;
 			List<RectangleRef> ranges=new List<RectangleRef>();
