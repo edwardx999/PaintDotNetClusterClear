@@ -113,7 +113,7 @@ namespace ClusterClearEffect {
 		protected override PropertyCollection OnCreatePropertyCollection() {
 			List<Property> props = new List<Property>();
 			props.Add(new Int32Property(PropertyNames.LowerThreshold,0,0,300));
-			props.Add(new Int32Property(PropertyNames.UpperThreshold,50,0,500));
+			props.Add(new Int32Property(PropertyNames.UpperThreshold,150,0,500));
 			props.Add(new Int32Property(PropertyNames.Tolerance,((int)(toleranceMax*0.95)),0,(int)toleranceMax));
 
 			return new PropertyCollection(props);
@@ -139,8 +139,8 @@ namespace ClusterClearEffect {
 			PdnRegion selection=EnvironmentParameters.GetSelection(SrcArgs.Surface.Bounds);
 			List<RectangleRef> selRects=RectanglesToRectangleRefs(selection.GetRegionScansInt());
 			//selRects=(split into proper rois);
-			CustomOnRender(selRects);
-			//CustomOnRender(splitSmall(selRects,selection.GetBoundsInt().Bottom/4));
+			//CustomOnRender(selRects);
+			CustomOnRender(SplitSmall(selRects,selection.GetBoundsInt().Bottom/4));
 
 		}
 
