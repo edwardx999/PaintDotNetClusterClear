@@ -145,7 +145,7 @@ namespace ClusterClearEffect {
 		}
 
 		protected override void OnCustomizeConfigUIWindowProperties(PropertyCollection props) {
-			props[ControlInfoPropertyNames.WindowTitle].Value="My First Effect";
+			props[ControlInfoPropertyNames.WindowTitle].Value="Cluster Clear";
 			props[ControlInfoPropertyNames.WindowHelpContentType].Value=WindowHelpContentType.PlainText;
 			props[ControlInfoPropertyNames.WindowHelpContent].Value=" v1.0\nCopyright ©2017 by \nAll rights reserved.";
 			base.OnCustomizeConfigUIWindowProperties(props);
