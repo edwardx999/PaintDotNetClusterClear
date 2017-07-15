@@ -137,9 +137,10 @@ namespace ClusterClearEffect {
 
 			base.OnSetRenderInfo(newToken,dstArgs,srcArgs);
 			PdnRegion selection=EnvironmentParameters.GetSelection(SrcArgs.Surface.Bounds);
-			Rectangle[] selRects=selection.GetRegionScansInt();
+			List<RectangleRef> selRects=RectanglesToRectangleRefs(selection.GetRegionScansInt());
 			//selRects=(split into proper rois);
-			CustomOnRender(splitSmall(selRects,selection.GetBoundsInt().Bottom/4));
+			CustomOnRender(selRects);
+			//CustomOnRender(splitSmall(selRects,selection.GetBoundsInt().Bottom/4));
 
 		}
 
@@ -150,16 +151,25 @@ namespace ClusterClearEffect {
 			base.OnCustomizeConfigUIWindowProperties(props);
 		}
 
-		List<RectangleRef> splitSmall(Rectangle[] orig,int optRectHeight) {
+		static List<RectangleRef> RectanglesToRectangleRefs(IEnumerable<Rectangle> orig) {
 			List<RectangleRef> rects=new List<RectangleRef>();
-			for(int i = 0;i<orig.Length;++i) {
-				if(orig[i].Height>optRectHeight) {
-					int maxY=orig[i].Bottom-optRectHeight;
-					int y = orig[i].Y;
+			orig.ForEach(r => rects.Add(new RectangleRef(r)));
+			return rects;
+		}
+
+		static List<RectangleRef> SplitSmall(IEnumerable<RectangleRef> orig,int optRectHeight) {
+			List<RectangleRef> rects=new List<RectangleRef>();
+			foreach(RectangleRef rect in orig) { 
+				if(rect.Height>optRectHeight) {
+					int maxY=rect.Bottom-optRectHeight;
+					int y = rect.Y;
 					for(;y<maxY;y+=optRectHeight) {
-						rects.Add(new RectangleRef(orig[i].X,y,orig[i].Width,optRectHeight));
+						rects.Add(new RectangleRef(rect.X,y,rect.Width,optRectHeight));
 					}
-					rects.Add(new RectangleRef(orig[i].X,y,orig[i].X,orig[i].Bottom-y));
+					rects.Add(new RectangleRef(rect.X,y,rect.Width,rect.Bottom-y));
+				}
+				else {
+					rects.Add(rect);
 				}
 			}
 			return rects;
