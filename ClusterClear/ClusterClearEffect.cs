@@ -104,23 +104,39 @@ namespace ClusterClearEffect {
 		}
 
 		public enum PropertyNames {
+			Mode,
 			LowerThreshold,
 			UpperThreshold,
 			Tolerance
 		}
 
+		enum Modes {
+			IsNotSecondary,
+			IsPrimary
+		}
+		static readonly int MaxMode=Enum.GetValues(typeof(Modes)).Cast<int>().Max();
 
 		protected override PropertyCollection OnCreatePropertyCollection() {
 			List<Property> props = new List<Property>();
+			props.Add(StaticListChoiceProperty.CreateForEnum<Modes>(PropertyNames.Mode,Modes.IsNotSecondary,false));
 			props.Add(new Int32Property(PropertyNames.LowerThreshold,0,0,300));
 			props.Add(new Int32Property(PropertyNames.UpperThreshold,150,0,500));
-			props.Add(new Int32Property(PropertyNames.Tolerance,((int)(toleranceMax*0.988)),0,(int)toleranceMax));
+			props.Add(new Int32Property(PropertyNames.Tolerance,((int)(toleranceMax*0.042)),0,(int)toleranceMax));
 
-			return new PropertyCollection(props);
+			List<PropertyCollectionRule> propRules=new List<PropertyCollectionRule>(){
+				new SoftMutuallyBoundMinMaxRule<int,Int32Property>(PropertyNames.LowerThreshold,PropertyNames.UpperThreshold)
+			};
+			return new PropertyCollection(props,propRules);
 		}
 
 		protected override ControlInfo OnCreateConfigUI(PropertyCollection props) {
 			ControlInfo configUI = CreateDefaultConfigUI(props);
+			configUI.SetPropertyControlType(PropertyNames.Mode,PropertyControlType.RadioButton);
+			PropertyControlInfo modes=configUI.FindControlForPropertyName(PropertyNames.Mode);
+			modes.SetValueDisplayName(Modes.IsNotSecondary,"Ignore Within Tolerance of Secondary Color");
+			modes.SetValueDisplayName(Modes.IsPrimary,"Add Within Tolerance of Primary Color");
+
+			configUI.SetPropertyControlValue(PropertyNames.Mode,ControlInfoPropertyNames.DisplayName,"Clustering Mode");
 			configUI.SetPropertyControlValue(PropertyNames.LowerThreshold,ControlInfoPropertyNames.DisplayName,"Cluster Size Lower Threshold");
 			configUI.SetPropertyControlValue(PropertyNames.UpperThreshold,ControlInfoPropertyNames.DisplayName,"Cluster Size Upper Threshold");
 			configUI.SetPropertyControlValue(PropertyNames.Tolerance,ControlInfoPropertyNames.DisplayName,"Tolerance ‰");
@@ -131,15 +147,23 @@ namespace ClusterClearEffect {
 		static readonly float toleranceMax = 1000;
 		bool ClustersFinished=false;
 		bool ToleranceChanged=true;
+		bool ModeChanged=true;
 		List<Cluster> clusters;
 		protected override void OnSetRenderInfo(PropertyBasedEffectConfigToken newToken,RenderArgs dstArgs,RenderArgs srcArgs) {
+			Modes OldMode=Mode;
+			Mode=(Modes)newToken.GetProperty<StaticListChoiceProperty>(PropertyNames.Mode).Value;
+			ModeChanged=Mode!=OldMode;
 			LowerThreshold=newToken.GetProperty<Int32Property>(PropertyNames.LowerThreshold).Value;
+
 			UpperThreshold=newToken.GetProperty<Int32Property>(PropertyNames.UpperThreshold).Value;
-			float oldTolerance=Tolerance;
+
+			float OldTolerance=Tolerance;
 			Tolerance=newToken.GetProperty<Int32Property>(PropertyNames.Tolerance).Value;
 			Tolerance*=Tolerance/toleranceMax/toleranceMax;
-			ToleranceChanged=Tolerance==oldTolerance;
+			ToleranceChanged=Tolerance!=OldTolerance;
+
 			base.OnSetRenderInfo(newToken,dstArgs,srcArgs);
+
 			PdnRegion selection=EnvironmentParameters.GetSelection(SrcArgs.Surface.Bounds);
 			List<RectangleRef> selRects=RectanglesToRectangleRefs(selection.GetRegionScansInt());
 			CustomOnRender(SplitSmall(selRects,selection.GetBoundsInt().Bottom/4));
@@ -176,14 +200,30 @@ namespace ClusterClearEffect {
 			return rects;
 		}
 
+		//I should change this to clean up old clusters
 		void CustomOnRender(IEnumerable<RectangleRef> rois) {
-			if(ToleranceChanged||!ClustersFinished) {
+			if(ToleranceChanged||!ClustersFinished||ModeChanged) {
 				SynchronizedCollection<List<RectangleRef>> allRanges=new SynchronizedCollection<List<RectangleRef>>();
-				Parallel.ForEach(rois,rect => {
-					CleanUp(rect);
-					List<RectangleRef> ranges=FindRanges(rect);
-					allRanges.Add(ranges);
-				});
+				switch(Mode) {
+					case Modes.IsPrimary: {
+							ColorBgra PrimaryColor=EnvironmentParameters.PrimaryColor;
+							Parallel.ForEach(rois,rect => {
+								CleanUp(rect);
+								List<RectangleRef> ranges=FindRanges(rect,PrimaryColor,false);
+								allRanges.Add(ranges);
+							});
+							break;
+						}
+					case Modes.IsNotSecondary: {
+							ColorBgra SecondaryColor=EnvironmentParameters.SecondaryColor;
+							Parallel.ForEach(rois,rect => {
+								CleanUp(rect);
+								List<RectangleRef> ranges=FindRanges(rect,SecondaryColor,true);
+								allRanges.Add(ranges);
+							});
+							break;
+						}
+				}
 				clusters=ClusterRanges(allRanges);
 			}
 			else {
@@ -211,13 +251,13 @@ namespace ClusterClearEffect {
 			}
 		}
 
+		Modes Mode;
 		IntSliderControl LowerThreshold = 0;
 		IntSliderControl UpperThreshold = 50;
 		float Tolerance = -5;
 
-		List<RectangleRef> FindRanges(RectangleRef rect) {
+		List<RectangleRef> FindRanges(RectangleRef rect,ColorBgra Color,bool IgnoreWithinTolerance) {
 			Surface src=SrcArgs.Surface;
-			ColorBgra PrimaryColor=EnvironmentParameters.PrimaryColor;
 			List<RectangleRef> ranges=new List<RectangleRef>();
 			byte rangeFound=0;
 			int rangeStart=0,rangeEnd=0;
@@ -226,14 +266,14 @@ namespace ClusterClearEffect {
 				for(int x = rect.Left;x<rect.Right;++x) {
 					switch(rangeFound) {
 						case 0: {
-								if(ColorPercentage(src[x,y],PrimaryColor)<=Tolerance) {
+								if(ColorPercentage(src[x,y],Color)<=Tolerance^IgnoreWithinTolerance) {
 									rangeFound=1;
 									rangeStart=x;
 								}
 								break;
 							}
 						case 1: {
-								if(ColorPercentage(src[x,y],PrimaryColor)>Tolerance) {
+								if(ColorPercentage(src[x,y],Color)>Tolerance^IgnoreWithinTolerance) {
 									rangeFound=2;
 									rangeEnd=x;
 									goto case 2;
