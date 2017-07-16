@@ -95,7 +95,7 @@ namespace ClusterClearEffect {
 
 		public static string SubmenuName {
 			get {
-				return "Object";
+				return "Noise";
 			}
 		}
 
@@ -185,6 +185,11 @@ namespace ClusterClearEffect {
 					allRanges.Add(ranges);
 				});
 				clusters=ClusterRanges(allRanges);
+			}
+			else {
+				Parallel.ForEach(rois,rect => {
+					CleanUp(rect);
+				});
 			}
 			Parallel.ForEach(clusters,clust => {
 				RenderCluster(DstArgs.Surface,clust);
@@ -281,7 +286,7 @@ namespace ClusterClearEffect {
 				if(0!=ydif) return ydif;
 				return a.IsTop.CompareTo(b.IsTop);
 			});
-			
+
 			List<Cluster> Clusters=new List<Cluster>();
 			Stack<int> searchStack=new Stack<int>();
 			int max=tests.Count;
@@ -435,7 +440,7 @@ namespace ClusterClearEffect {
 				}
 				return null;
 			}
-			
+
 			public void Create(Point seed,Surface src,RectangleRef[] limits,ColorBgra color,float Tolerance,ClusterClearEffectPlugin controller,bool[,] safePoints) {
 				Ranges.Clear();
 				int xL = seed.X;
@@ -552,12 +557,12 @@ namespace ClusterClearEffect {
 				}
 				CompressRanges();
 			}
-			
+
 			public void CompressRanges() {
 				ClusterClearEffectPlugin.CompressRanges(Ranges);
 			}
 		}
-		
+
 		void RenderCluster(Surface dst,Cluster cluster) {
 			ColorBgra SecondaryColor = EnvironmentParameters.SecondaryColor;
 			int clusterSize = cluster.NumPixels;
