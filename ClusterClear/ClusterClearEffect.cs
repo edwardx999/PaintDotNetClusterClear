@@ -22,6 +22,7 @@ using PaintDotNet.AppModel;
 using PaintDotNet.IndirectUI;
 using PaintDotNet.Collections;
 using PaintDotNet.PropertySystem;
+using PaintDotNotExtraUtils;
 
 using IntSliderControl = System.Int32;
 using CheckboxControl = System.Boolean;
@@ -165,8 +166,8 @@ namespace ClusterClearEffect {
 			base.OnSetRenderInfo(newToken,dstArgs,srcArgs);
 
 			PdnRegion selection=EnvironmentParameters.GetSelection(SrcArgs.Surface.Bounds);
-			List<RectangleRef> selRects=RectanglesToRectangleRefs(selection.GetRegionScansInt());
-			CustomOnRender(SplitSmall(selRects,selection.GetBoundsInt().Bottom/4));
+			List<RectangleRef> selRects=RectangleRef.RectanglesToRectangleRefs(selection.GetRegionScansInt());
+			CustomOnRender(RectangleRef.SplitSmall(selRects,selection.GetBoundsInt().Bottom/4));
 		}
 
 		protected override void OnCustomizeConfigUIWindowProperties(PropertyCollection props) {
@@ -174,30 +175,6 @@ namespace ClusterClearEffect {
 			props[ControlInfoPropertyNames.WindowHelpContentType].Value=WindowHelpContentType.PlainText;
 			props[ControlInfoPropertyNames.WindowHelpContent].Value=" v1.0\nCopyright ©2017 by \nAll rights reserved.";
 			base.OnCustomizeConfigUIWindowProperties(props);
-		}
-
-		static List<RectangleRef> RectanglesToRectangleRefs(IEnumerable<Rectangle> orig) {
-			List<RectangleRef> rects=new List<RectangleRef>();
-			orig.ForEach(r => rects.Add(new RectangleRef(r)));
-			return rects;
-		}
-
-		static List<RectangleRef> SplitSmall(IEnumerable<RectangleRef> orig,int optRectHeight) {
-			List<RectangleRef> rects=new List<RectangleRef>();
-			foreach(RectangleRef rect in orig) {
-				if(rect.Height>optRectHeight) {
-					int maxY=rect.Bottom-optRectHeight;
-					int y = rect.Y;
-					for(;y<maxY;y+=optRectHeight) {
-						rects.Add(new RectangleRef(rect.X,y,rect.Width,optRectHeight));
-					}
-					rects.Add(new RectangleRef(rect.X,y,rect.Width,rect.Bottom-y));
-				}
-				else {
-					rects.Add(rect);
-				}
-			}
-			return rects;
 		}
 
 		//I should change this to clean up old clusters
@@ -404,56 +381,6 @@ namespace ClusterClearEffect {
 				this.right=right;
 				this.y=y;
 				this.direction=direction;
-			}
-		}
-
-		class RectangleRef:IComparable {
-			public Rectangle rect;
-
-			public int Left { get { return rect.Left; } }
-			public int Right { get { return rect.Right; } }
-			public int Bottom { get { return rect.Bottom; } }
-			public int Top { get { return rect.Top; } }
-			public int X { get { return rect.X; } }
-			public int Y { get { return rect.Y; } }
-			public int Width { get { return rect.Width; } }
-			public int Height { get { return rect.Height; } }
-
-			public RectangleRef(int x,int y,int width,int height) {
-				rect=new Rectangle(x,y,width,height);
-			}
-			public RectangleRef(Point loc,Size size) {
-				rect=new Rectangle(loc,size);
-			}
-			public RectangleRef(Rectangle r) {
-				this.rect=r;
-			}
-			public Boolean Contains(int x,int y) {
-				return Contains(new Point(x,y));
-			}
-			public Boolean Contains(Point p) {
-				return rect.Contains(p);
-			}
-			public int Area() {
-				return Width*Height;
-			}
-			public int CompareTo(object obj) {
-				RectangleRef other = (RectangleRef)obj;
-				int xdif = this.X-other.X;
-				return (0!=xdif) ? xdif : (this.Y-other.Y);
-			}
-			public override string ToString() {
-				return rect.ToString();
-			}
-			public bool IsBorderingVert(RectangleRef other) {
-				return (other.Bottom==Top||other.Top==Bottom)&&OverlapsX(other);
-			}
-			public bool OverlapsX(RectangleRef other) {
-				return (other.Left>=Left&&other.Left<Right)
-						||
-						(other.Right>Left&&other.Right<=Right)
-						||
-						(other.Left<Left&&other.Right>Right);
 			}
 		}
 
