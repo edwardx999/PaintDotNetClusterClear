@@ -243,14 +243,14 @@ namespace ClusterClearEffect {
 				for(int x = rect.Left;x<rect.Right;++x) {
 					switch(rangeFound) {
 						case 0: {
-								if(ColorPercentage(src[x,y],Color)<=Tolerance^IgnoreWithinTolerance) {
+								if(ColorUtils.RGBPercentage(src[x,y],Color)<=Tolerance^IgnoreWithinTolerance) {
 									rangeFound=1;
 									rangeStart=x;
 								}
 								break;
 							}
 						case 1: {
-								if(ColorPercentage(src[x,y],Color)>Tolerance^IgnoreWithinTolerance) {
+								if(ColorUtils.RGBPercentage(src[x,y],Color)>Tolerance^IgnoreWithinTolerance) {
 									rangeFound=2;
 									rangeEnd=x;
 									goto case 2;
@@ -411,13 +411,13 @@ namespace ClusterClearEffect {
 			public void Create(Point seed,Surface src,RectangleRef[] limits,ColorBgra color,float Tolerance,ClusterClearEffectPlugin controller,bool[,] safePoints) {
 				Ranges.Clear();
 				int xL = seed.X;
-				while(xL>=0&&ColorPercentage(color,src[seed.X,seed.Y])<=Tolerance) {
+				while(xL>=0&&ColorUtils.RGBPercentage(color,src[seed.X,seed.Y])<=Tolerance) {
 					--xL;
 				}
 				++xL;
 				int xR = seed.X+1;
 				int maxR = src.Width;
-				while(xR<maxR&&ColorPercentage(color,src[xR,seed.Y])<=Tolerance) {
+				while(xR<maxR&&ColorUtils.RGBPercentage(color,src[xR,seed.Y])<=Tolerance) {
 					++xR;
 				}
 				--xR;
@@ -437,13 +437,13 @@ namespace ClusterClearEffect {
 					if(controller.IsCancelRequested) return;
 					r=scanRanges.Pop();
 					//scan left
-					for(sleft=r.left-1;sleft>=xMin&&ColorPercentage(color,src[sleft,r.y])<=Tolerance;--sleft) {
+					for(sleft=r.left-1;sleft>=xMin&&ColorUtils.RGBPercentage(color,src[sleft,r.y])<=Tolerance;--sleft) {
 						safePoints[sleft,r.y]=true;
 					}
 					++sleft;
 
 					//scan right
-					for(sright=r.right+1;sright<=xMax&&ColorPercentage(color,src[sright,r.y])<=Tolerance;++sright) {
+					for(sright=r.right+1;sright<=xMax&&ColorUtils.RGBPercentage(color,src[sright,r.y])<=Tolerance;++sright) {
 						safePoints[sright,r.y]=true;
 					}
 					--sright;
@@ -457,7 +457,7 @@ namespace ClusterClearEffect {
 						xL=sleft;
 						while(xL<=sright) {
 							for(;xL<=sright;++xL) {
-								if(ColorPercentage(color,src[xL,newy])<=Tolerance) {
+								if(ColorUtils.RGBPercentage(color,src[xL,newy])<=Tolerance) {
 									safePoints[xL,newy]=true;
 									rangeFound=true;
 									rangeStart=xL++;
@@ -465,7 +465,7 @@ namespace ClusterClearEffect {
 								}
 							}
 							for(;xL<=sright;++xL) {
-								if(ColorPercentage(color,src[xL,newy])>Tolerance) {
+								if(ColorUtils.RGBPercentage(color,src[xL,newy])>Tolerance) {
 									break;
 								}
 								safePoints[xL,newy]=true;
@@ -483,7 +483,7 @@ namespace ClusterClearEffect {
 						xL=sleft;
 						while(xL<r.left) {
 							for(;xL<r.left;++xL) {
-								if(ColorPercentage(color,src[xL,newy])<=Tolerance) {
+								if(ColorUtils.RGBPercentage(color,src[xL,newy])<=Tolerance) {
 									safePoints[xL,newy]=true;
 									rangeFound=true;
 									rangeStart=xL++;
@@ -491,7 +491,7 @@ namespace ClusterClearEffect {
 								}
 							}
 							for(;xL<r.left;++xL) {
-								if(ColorPercentage(color,src[xL,newy])>Tolerance)
+								if(ColorUtils.RGBPercentage(color,src[xL,newy])>Tolerance)
 									break;
 								safePoints[xL,newy]=true;
 							}
@@ -503,7 +503,7 @@ namespace ClusterClearEffect {
 						xL=r.right+1;
 						while(xL<=sright) {
 							for(;xL<=sright;++xL) {
-								if(ColorPercentage(color,src[xL,newy])<=Tolerance) {
+								if(ColorUtils.RGBPercentage(color,src[xL,newy])<=Tolerance) {
 									safePoints[xL,newy]=true;
 									rangeFound=true;
 									rangeStart=xL++;
@@ -511,7 +511,7 @@ namespace ClusterClearEffect {
 								}
 							}
 							for(;xL<=sright;++xL) {
-								if(ColorPercentage(color,src[xL,newy])>Tolerance)
+								if(ColorUtils.RGBPercentage(color,src[xL,newy])>Tolerance)
 									break;
 								safePoints[xL,newy]=true;
 							}
@@ -543,14 +543,6 @@ namespace ClusterClearEffect {
 					}
 				}
 			}
-		}
-
-		const float maxDif = 255.0f*255.0f*3.0f;
-		static float ColorPercentage(ColorBgra a,ColorBgra b) {
-			var dR = (float)(a.R-b.R);
-			var dG = (float)(a.G-b.G);
-			var dB = (float)(a.B-b.G);
-			return (dR*dR+dG*dG+dB*dB)/maxDif;
 		}
 	}
 }
