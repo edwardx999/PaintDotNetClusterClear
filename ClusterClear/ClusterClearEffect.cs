@@ -1,4 +1,20 @@
-﻿// Compiler options:  /unsafe /optimize /debug- /target:library /out:"C:\Users\edwar\Desktop\ClusterClear.dll"
+﻿/*
+Copyright(C) 2017 Edward Xie
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+*/
+// Compiler options:  /unsafe /optimize /debug- /target:library /out:"C:\Users\edwar\Desktop\ClusterClear.dll"
 using System;
 using System.Runtime;
 using System.IO;
@@ -179,10 +195,13 @@ namespace ClusterClearEffect {
 
 		//I should change this to clean up old clusters
 		void CustomOnRender(IEnumerable<RectangleRef> rois) {
-			if(ToleranceChanged||!ClustersFinished||ModeChanged) {
+			if(ToleranceChanged||!ClustersFinished||ModeChanged)
+			{
 				SynchronizedCollection<List<RectangleRef>> allRanges=new SynchronizedCollection<List<RectangleRef>>();
-				switch(Mode) {
-					case Modes.IsPrimary: {
+				switch(Mode)
+				{
+					case Modes.IsPrimary:
+						{
 							ColorBgra PrimaryColor=EnvironmentParameters.PrimaryColor;
 							Parallel.ForEach(rois,rect => {
 								CleanUp(rect);
@@ -191,7 +210,8 @@ namespace ClusterClearEffect {
 							});
 							break;
 						}
-					case Modes.IsNotSecondary: {
+					case Modes.IsNotSecondary:
+						{
 							ColorBgra SecondaryColor=EnvironmentParameters.SecondaryColor;
 							Parallel.ForEach(rois,rect => {
 								CleanUp(rect);
@@ -203,7 +223,8 @@ namespace ClusterClearEffect {
 				}
 				clusters=ClusterRanges(allRanges);
 			}
-			else {
+			else
+			{
 				Parallel.ForEach(rois,rect => {
 					CleanUp(rect);
 				});
@@ -221,8 +242,10 @@ namespace ClusterClearEffect {
 			Surface dst=DstArgs.Surface,src=SrcArgs.Surface;
 			int ymax=r.Bottom;
 			int xmax=r.Right;
-			for(int y = r.Top;y<ymax;++y) {
-				for(int x = r.Left;x<xmax;++x) {
+			for(int y = r.Top;y<ymax;++y)
+			{
+				for(int x = r.Left;x<xmax;++x)
+				{
 					dst[x,y]=src[x,y];
 				}
 			}
@@ -238,33 +261,42 @@ namespace ClusterClearEffect {
 			List<RectangleRef> ranges=new List<RectangleRef>();
 			byte rangeFound=0;
 			int rangeStart=0,rangeEnd=0;
-			for(int y = rect.Top;y<rect.Bottom;++y) {
+			for(int y = rect.Top;y<rect.Bottom;++y)
+			{
 				if(IsCancelRequested) goto endloop;
-				for(int x = rect.Left;x<rect.Right;++x) {
-					switch(rangeFound) {
-						case 0: {
-								if(ColorUtils.RGBPercentage(src[x,y],Color)<=Tolerance^IgnoreWithinTolerance) {
+				for(int x = rect.Left;x<rect.Right;++x)
+				{
+					switch(rangeFound)
+					{
+						case 0:
+							{
+								if(ColorUtils.RGBPercentage(src[x,y],Color)<=Tolerance^IgnoreWithinTolerance)
+								{
 									rangeFound=1;
 									rangeStart=x;
 								}
 								break;
 							}
-						case 1: {
-								if(ColorUtils.RGBPercentage(src[x,y],Color)>Tolerance^IgnoreWithinTolerance) {
+						case 1:
+							{
+								if(ColorUtils.RGBPercentage(src[x,y],Color)>Tolerance^IgnoreWithinTolerance)
+								{
 									rangeFound=2;
 									rangeEnd=x;
 									goto case 2;
 								}
 								break;
 							}
-						case 2: {
+						case 2:
+							{
 								ranges.Add(new RectangleRef(rangeStart,y,rangeEnd-rangeStart,1));
 								rangeFound=0;
 								break;
 							}
 					}
 				}
-				if(1==rangeFound) {
+				if(1==rangeFound)
+				{
 					ranges.Add(new RectangleRef(rangeStart,y,rect.Right-rangeStart,1));
 					rangeFound=0;
 				}
@@ -276,8 +308,10 @@ namespace ClusterClearEffect {
 
 		static void CompressRanges(List<RectangleRef> ranges) {
 			ranges.Sort();
-			for(int i = 1;i<ranges.Count();++i) {
-				if(ranges[i-1].rect.Left==ranges[i].rect.Left&&ranges[i-1].rect.Right==ranges[i].rect.Right&&ranges[i-1].rect.Bottom==ranges[i].rect.Top) {
+			for(int i = 1;i<ranges.Count();++i)
+			{
+				if(ranges[i-1].rect.Left==ranges[i].rect.Left&&ranges[i-1].rect.Right==ranges[i].rect.Right&&ranges[i-1].rect.Bottom==ranges[i].rect.Top)
+				{
 					ranges[i-1]=new RectangleRef(ranges[i-1].rect.Location,new Size(ranges[i].rect.Width,ranges[i-1].rect.Height+ranges[i].rect.Height));
 					ranges.RemoveAt(i--);
 				} /*
@@ -307,15 +341,18 @@ namespace ClusterClearEffect {
 			List<Cluster> Clusters=new List<Cluster>();
 			Stack<int> searchStack=new Stack<int>();
 			int max=tests.Count;
-			for(int i = max-1;i>=0;--i) {
+			for(int i = max-1;i>=0;--i)
+			{
 				ClusterTestNode CurrentNode=tests[i];
 				if(!CurrentNode.IsTop) continue;//if it is a bottom or is already in a cluster, nothing is done
-				if(CurrentNode.Parent.Cluster==null) {
+				if(CurrentNode.Parent.Cluster==null)
+				{
 					//Console.WriteLine("\nTesting "+CurrentNode.Parent.Rectangle);
 					Cluster CurrentCluster=new Cluster();
 					Clusters.Add(CurrentCluster);
 					searchStack.Push(i);
-					while(searchStack.Count>0) {//search for contacts
+					while(searchStack.Count>0)
+					{//search for contacts
 						if(IsCancelRequested) goto endloop;
 						int searchIndex=searchStack.Pop();
 						ClusterTestNode SearchNode=tests[searchIndex];
@@ -324,24 +361,32 @@ namespace ClusterClearEffect {
 						SearchNode.Parent.Cluster=CurrentCluster;
 						CurrentCluster.Ranges.Add(SearchNode.Parent.Rectangle);
 						//search up for bottoms
-						for(int s = searchIndex-1;s>=0;--s) {
-							if(!tests[s].IsTop) {
-								if(tests[s].Y==SearchNode.Parent.Rectangle.Top&&tests[s].Parent.Rectangle.OverlapsX(SearchNode.Parent.Rectangle)) {
+						for(int s = searchIndex-1;s>=0;--s)
+						{
+							if(!tests[s].IsTop)
+							{
+								if(tests[s].Y==SearchNode.Parent.Rectangle.Top&&tests[s].Parent.Rectangle.OverlapsX(SearchNode.Parent.Rectangle))
+								{
 									searchStack.Push(s);
 								}
-								else if(tests[s].Y<SearchNode.Parent.Rectangle.Top) {
+								else if(tests[s].Y<SearchNode.Parent.Rectangle.Top)
+								{
 									//Console.WriteLine("\t\tStopped at "+s);
 									break;
 								}
 							}
 						}
 						//search down for tops
-						for(int s = searchIndex+1;s<max;++s) {
-							if(tests[s].IsTop) {
-								if(tests[s].Y==SearchNode.Parent.Rectangle.Bottom&&tests[s].Parent.Rectangle.OverlapsX(SearchNode.Parent.Rectangle)) {
+						for(int s = searchIndex+1;s<max;++s)
+						{
+							if(tests[s].IsTop)
+							{
+								if(tests[s].Y==SearchNode.Parent.Rectangle.Bottom&&tests[s].Parent.Rectangle.OverlapsX(SearchNode.Parent.Rectangle))
+								{
 									searchStack.Push(s);
 								}
-								else if(tests[s].Y>SearchNode.Parent.Rectangle.Bottom) {
+								else if(tests[s].Y>SearchNode.Parent.Rectangle.Bottom)
+								{
 									//Console.WriteLine("\t\tStopped at "+s);
 									break;
 								}
@@ -401,7 +446,8 @@ namespace ClusterClearEffect {
 
 			public RectangleRef Contains(Point p) {
 				//if(!sorted) { ranges.Sort(); sorted=true; }
-				foreach(RectangleRef r in Ranges) {
+				foreach(RectangleRef r in Ranges)
+				{
 					if(r.Contains(p)) { return r; }
 					if(r.rect.Left>p.X) { return null; }
 				}
@@ -411,13 +457,15 @@ namespace ClusterClearEffect {
 			public void Create(Point seed,Surface src,RectangleRef[] limits,ColorBgra color,float Tolerance,ClusterClearEffectPlugin controller,bool[,] safePoints) {
 				Ranges.Clear();
 				int xL = seed.X;
-				while(xL>=0&&ColorUtils.RGBPercentage(color,src[seed.X,seed.Y])<=Tolerance) {
+				while(xL>=0&&ColorUtils.RGBPercentage(color,src[xL,seed.Y])<=Tolerance)
+				{
 					--xL;
 				}
 				++xL;
 				int xR = seed.X+1;
 				int maxR = src.Width;
-				while(xR<maxR&&ColorUtils.RGBPercentage(color,src[xR,seed.Y])<=Tolerance) {
+				while(xR<maxR&&ColorUtils.RGBPercentage(color,src[xR,seed.Y])<=Tolerance)
+				{
 					++xR;
 				}
 				--xR;
@@ -433,17 +481,20 @@ namespace ClusterClearEffect {
 				ScanRange r;
 				int sleft;
 				int sright;
-				while(scanRanges.Count!=0) {
+				while(scanRanges.Count!=0)
+				{
 					if(controller.IsCancelRequested) return;
 					r=scanRanges.Pop();
 					//scan left
-					for(sleft=r.left-1;sleft>=xMin&&ColorUtils.RGBPercentage(color,src[sleft,r.y])<=Tolerance;--sleft) {
+					for(sleft=r.left-1;sleft>=xMin&&ColorUtils.RGBPercentage(color,src[sleft,r.y])<=Tolerance;--sleft)
+					{
 						safePoints[sleft,r.y]=true;
 					}
 					++sleft;
 
 					//scan right
-					for(sright=r.right+1;sright<=xMax&&ColorUtils.RGBPercentage(color,src[sright,r.y])<=Tolerance;++sright) {
+					for(sright=r.right+1;sright<=xMax&&ColorUtils.RGBPercentage(color,src[sright,r.y])<=Tolerance;++sright)
+					{
 						safePoints[sright,r.y]=true;
 					}
 					--sright;
@@ -453,24 +504,31 @@ namespace ClusterClearEffect {
 					bool rangeFound = false;
 					int rangeStart = 0;
 					int newy = r.y+r.direction;
-					if(newy>=yMin&&newy<=yMax) {
+					if(newy>=yMin&&newy<=yMax)
+					{
 						xL=sleft;
-						while(xL<=sright) {
-							for(;xL<=sright;++xL) {
-								if(ColorUtils.RGBPercentage(color,src[xL,newy])<=Tolerance) {
+						while(xL<=sright)
+						{
+							for(;xL<=sright;++xL)
+							{
+								if(ColorUtils.RGBPercentage(color,src[xL,newy])<=Tolerance)
+								{
 									safePoints[xL,newy]=true;
 									rangeFound=true;
 									rangeStart=xL++;
 									break;
 								}
 							}
-							for(;xL<=sright;++xL) {
-								if(ColorUtils.RGBPercentage(color,src[xL,newy])>Tolerance) {
+							for(;xL<=sright;++xL)
+							{
+								if(ColorUtils.RGBPercentage(color,src[xL,newy])>Tolerance)
+								{
 									break;
 								}
 								safePoints[xL,newy]=true;
 							}
-							if(rangeFound) {
+							if(rangeFound)
+							{
 								rangeFound=false;
 								scanRanges.Push(new ScanRange(rangeStart,xL-1,newy,r.direction));
 							}
@@ -479,43 +537,54 @@ namespace ClusterClearEffect {
 
 					//scan opposite direction vertically
 					newy=r.y-r.direction;
-					if(newy>=yMin&&newy<=yMax) {
+					if(newy>=yMin&&newy<=yMax)
+					{
 						xL=sleft;
-						while(xL<r.left) {
-							for(;xL<r.left;++xL) {
-								if(ColorUtils.RGBPercentage(color,src[xL,newy])<=Tolerance) {
+						while(xL<r.left)
+						{
+							for(;xL<r.left;++xL)
+							{
+								if(ColorUtils.RGBPercentage(color,src[xL,newy])<=Tolerance)
+								{
 									safePoints[xL,newy]=true;
 									rangeFound=true;
 									rangeStart=xL++;
 									break;
 								}
 							}
-							for(;xL<r.left;++xL) {
+							for(;xL<r.left;++xL)
+							{
 								if(ColorUtils.RGBPercentage(color,src[xL,newy])>Tolerance)
 									break;
 								safePoints[xL,newy]=true;
 							}
-							if(rangeFound) {
+							if(rangeFound)
+							{
 								rangeFound=false;
 								scanRanges.Push(new ScanRange(rangeStart,xL-1,newy,-r.direction));
 							}
 						}
 						xL=r.right+1;
-						while(xL<=sright) {
-							for(;xL<=sright;++xL) {
-								if(ColorUtils.RGBPercentage(color,src[xL,newy])<=Tolerance) {
+						while(xL<=sright)
+						{
+							for(;xL<=sright;++xL)
+							{
+								if(ColorUtils.RGBPercentage(color,src[xL,newy])<=Tolerance)
+								{
 									safePoints[xL,newy]=true;
 									rangeFound=true;
 									rangeStart=xL++;
 									break;
 								}
 							}
-							for(;xL<=sright;++xL) {
+							for(;xL<=sright;++xL)
+							{
 								if(ColorUtils.RGBPercentage(color,src[xL,newy])>Tolerance)
 									break;
 								safePoints[xL,newy]=true;
 							}
-							if(rangeFound) {
+							if(rangeFound)
+							{
 								rangeFound=false;
 								scanRanges.Push(new ScanRange(rangeStart,xL-1,newy,-r.direction));
 							}
@@ -533,11 +602,15 @@ namespace ClusterClearEffect {
 		void RenderCluster(Surface dst,Cluster cluster) {
 			ColorBgra SecondaryColor = EnvironmentParameters.SecondaryColor;
 			int clusterSize = cluster.NumPixels;
-			if(clusterSize>=LowerThreshold&&clusterSize<=UpperThreshold) {
-				foreach(RectangleRef r in cluster.Ranges) {
-					for(int y = r.rect.Top;y<r.rect.Bottom;++y) {
+			if(clusterSize>=LowerThreshold&&clusterSize<=UpperThreshold)
+			{
+				foreach(RectangleRef r in cluster.Ranges)
+				{
+					for(int y = r.rect.Top;y<r.rect.Bottom;++y)
+					{
 						if(IsCancelRequested) return;
-						for(int x = r.rect.Left;x<r.rect.Right;++x) {
+						for(int x = r.rect.Left;x<r.rect.Right;++x)
+						{
 							dst[x,y]=SecondaryColor;
 						}
 					}
