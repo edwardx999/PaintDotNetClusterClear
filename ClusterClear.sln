@@ -5,6 +5,8 @@ VisualStudioVersion = 15.0.26430.15
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ClusterClear", "ClusterClear\ClusterClear.csproj", "{E039F9CB-D316-4806-83DF-BC5F740E467A}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ClusterClearAlt", "ClusterClearAlt\ClusterClearAlt.csproj", "{6A12C144-DC04-471B-8780-8A05D87D02EC}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -45,8 +47,35 @@ Global
 		{E039F9CB-D316-4806-83DF-BC5F740E467A}.Release|x64.Build.0 = Release|Any CPU
 		{E039F9CB-D316-4806-83DF-BC5F740E467A}.Release|x86.ActiveCfg = Release|Any CPU
 		{E039F9CB-D316-4806-83DF-BC5F740E467A}.Release|x86.Build.0 = Release|Any CPU
+		{6A12C144-DC04-471B-8780-8A05D87D02EC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6A12C144-DC04-471B-8780-8A05D87D02EC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6A12C144-DC04-471B-8780-8A05D87D02EC}.Debug|ARM.ActiveCfg = Debug|Any CPU
+		{6A12C144-DC04-471B-8780-8A05D87D02EC}.Debug|ARM.Build.0 = Debug|Any CPU
+		{6A12C144-DC04-471B-8780-8A05D87D02EC}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{6A12C144-DC04-471B-8780-8A05D87D02EC}.Debug|x64.Build.0 = Debug|Any CPU
+		{6A12C144-DC04-471B-8780-8A05D87D02EC}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{6A12C144-DC04-471B-8780-8A05D87D02EC}.Debug|x86.Build.0 = Debug|Any CPU
+		{6A12C144-DC04-471B-8780-8A05D87D02EC}.Effects|Any CPU.ActiveCfg = Effects|Any CPU
+		{6A12C144-DC04-471B-8780-8A05D87D02EC}.Effects|Any CPU.Build.0 = Effects|Any CPU
+		{6A12C144-DC04-471B-8780-8A05D87D02EC}.Effects|ARM.ActiveCfg = Effects|Any CPU
+		{6A12C144-DC04-471B-8780-8A05D87D02EC}.Effects|ARM.Build.0 = Effects|Any CPU
+		{6A12C144-DC04-471B-8780-8A05D87D02EC}.Effects|x64.ActiveCfg = Effects|Any CPU
+		{6A12C144-DC04-471B-8780-8A05D87D02EC}.Effects|x64.Build.0 = Effects|Any CPU
+		{6A12C144-DC04-471B-8780-8A05D87D02EC}.Effects|x86.ActiveCfg = Effects|Any CPU
+		{6A12C144-DC04-471B-8780-8A05D87D02EC}.Effects|x86.Build.0 = Effects|Any CPU
+		{6A12C144-DC04-471B-8780-8A05D87D02EC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6A12C144-DC04-471B-8780-8A05D87D02EC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6A12C144-DC04-471B-8780-8A05D87D02EC}.Release|ARM.ActiveCfg = Release|Any CPU
+		{6A12C144-DC04-471B-8780-8A05D87D02EC}.Release|ARM.Build.0 = Release|Any CPU
+		{6A12C144-DC04-471B-8780-8A05D87D02EC}.Release|x64.ActiveCfg = Release|Any CPU
+		{6A12C144-DC04-471B-8780-8A05D87D02EC}.Release|x64.Build.0 = Release|Any CPU
+		{6A12C144-DC04-471B-8780-8A05D87D02EC}.Release|x86.ActiveCfg = Release|Any CPU
+		{6A12C144-DC04-471B-8780-8A05D87D02EC}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {E77F2E56-7826-43AC-AB7C-2ACEF6927741}
 	EndGlobalSection
 EndGlobal
