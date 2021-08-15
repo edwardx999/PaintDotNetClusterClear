@@ -39,6 +39,7 @@ using PaintDotNet.IndirectUI;
 using PaintDotNet.Collections;
 using PaintDotNet.PropertySystem;
 using PaintDotNotExtraUtils;
+using System.ServiceModel;
 
 using IntSliderControl = System.Int32;
 using CheckboxControl = System.Boolean;
