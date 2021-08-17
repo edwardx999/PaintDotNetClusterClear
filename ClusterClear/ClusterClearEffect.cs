@@ -39,6 +39,7 @@ using PaintDotNet.IndirectUI;
 using PaintDotNet.Collections;
 using PaintDotNet.PropertySystem;
 using PaintDotNotExtraUtils;
+using System.ServiceModel;
 
 using IntSliderControl = System.Int32;
 using CheckboxControl = System.Boolean;
@@ -117,7 +118,7 @@ namespace ClusterClearEffect {
 		}
 
 		public ClusterClearEffectPlugin()
-			: base(StaticName,StaticIcon,SubmenuName,EffectFlags.Configurable) {
+			: base(StaticName,StaticIcon,SubmenuName,new EffectOptions { Flags = EffectFlags.Configurable }) {
 		}
 
 		public enum PropertyNames {
@@ -181,7 +182,7 @@ namespace ClusterClearEffect {
 
 			base.OnSetRenderInfo(newToken,dstArgs,srcArgs);
 
-			PdnRegion selection=EnvironmentParameters.GetSelection(SrcArgs.Surface.Bounds);
+			PdnRegion selection=EnvironmentParameters.GetSelectionAsPdnRegion();
 			List<RectangleRef> selRects=RectangleRef.RectanglesToRectangleRefs(selection.GetRegionScansInt());
 			CustomOnRender(RectangleRef.SplitSmall(selRects,selection.GetBoundsInt().Bottom/4));
 		}
